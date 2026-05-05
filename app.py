@@ -201,11 +201,17 @@ if st.button("Analisar Transcrição", type="primary"):
             model = genai.GenerativeModel('gemini-3.1-flash-lite-preview', generation_config={"response_mime_type": "application/json"})
             
             prompt = """
-            Você é um editor de vídeo SÊNIOR com foco em fast pacing (corte seco). Sua missão é limpar a transcrição fornecida.
+            Você é um editor de vídeo SÊNIOR especialista em decupagem inteligente e fast pacing. Analise a seguinte transcrição com timestamps.
+            1. Identifique 3 tópicos principais discutidos e extraia os tempos (início e fim) de cada um.
+            2. Faça uma "Limpeza Geral" agressiva, mantendo apenas o ouro.
             
             COMO AVALIAR O TEXTO E OS TEMPOS:
-            1. RETAKES E REPETIÇÕES: Se o locutor começar uma frase, hesitar ou errar, e depois falar a mesma ideia reformulada logo em seguida, MANTENHA APENAS A ÚLTIMA TENTATIVA. Delete totalmente o bloco de tempo da tentativa errada/inferior. A regra é clara: o último take é sempre o bom.
-            2. Identifique 3 tópicos principais do vídeo, além da "Limpeza Geral".
+            - RELEVÂNCIA SEMÂNTICA: O conteúdo selecionado deve fazer sentido dentro do tema central do vídeo, não apenas conter palavras-chave soltas.
+            - COMPLETUDE: Priorize frases inteiras ou grupos de frases adjacentes que formem um pensamento completo e fechem um raciocínio. Nunca corte o locutor no meio de um pensamento.
+            - CLAREZA: Selecione apenas os trechos onde a fala é inquestionavelmente clara e direta, sem ambiguidades.
+            - DURAÇÃO E RITMO: Evite fragmentos muito curtos (menores que 2 segundos), a menos que sejam frases de impacto (punchlines) extremamente diretas, enérgicas e independentes.
+            - RETAKES E REDUNDÂNCIAS: Se houver duas frases ou ideias seguidas muito semelhantes (ex: o locutor errou e repetiu, ou reformulou para soar melhor), MANTENHA EXCLUSIVAMENTE A ÚLTIMA VERSÃO.
+            - RESPIROS: Remova blocos de tempo inúteis e pausas longas para manter o dinamismo, respeitando as regras de Completude acima.
             
             Seu retorno DEVE ser um JSON estrito neste exato formato:
             {
