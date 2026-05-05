@@ -16,7 +16,6 @@ st.markdown("Joga a transcrição, faz a limpeza geral e baixa a timeline pronta
 # FUNÇÕES DE APOIO (MATEMÁTICA E XML)
 # ==========================================
 def extract_clips_from_transcript(text):
-    """ O Python extrai os tempos exatos e dá um ID pra cada fala. Zero alucinação. """
     pattern = re.compile(r'(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})\s*(?:-|-->)\s*(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})')
     clips = []
     matches = list(pattern.finditer(text))
@@ -188,7 +187,30 @@ except:
     st.error("🚨 Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
     st.stop()
 
-modelo_api_str = "gemini-3-flash-preview"
+# --- ÁREA VIP (SELEÇÃO DE MODELO COM SENHA) ---
+modelo_api_str = "gemini-3.1-flash-lite-preview" # Modelo padrão
+
+with st.expander("⚙️ Configurações Avançadas (Restrito)"):
+    senha_digitada = st.text_input("Senha de Editor Chefe", type="password")
+    
+    try:
+        senha_correta = st.secrets["APP_PASSWORD"]
+    except:
+        senha_correta = "erro_na_senha_dos_secrets"
+
+    if senha_digitada == senha_correta:
+        modelos_disponiveis = {
+            "🚀 Gemini 3.1 Flash Lite (Padrão/Produção)": "gemini-3.1-flash-lite-preview",
+            "🧠 Gemini 3 Flash (Complexos/Pesados)": "gemini-3.0-flash",
+            "🎬 Gemini 2.5 Flash (Legado)": "gemini-2.5-flash"
+        }
+        modelo_selecionado_nome = st.selectbox("🤖 Escolha o Cérebro da Operação", list(modelos_disponiveis.keys()))
+        modelo_api_str = modelos_disponiveis[modelo_selecionado_nome]
+        st.success(f"Motor alterado para: {modelo_selecionado_nome.split(' (')[0]}")
+    elif senha_digitada != "":
+        st.error("Senha incorreta. Acesso negado.")
+
+st.markdown("---")
 
 col1, col2, col3 = st.columns(3)
 
@@ -210,7 +232,7 @@ if st.button("Analisar Transcrição", type="primary"):
         if not parsed_clips:
             st.error("Não consegui encontrar as marcações de tempo. Tem certeza que copiou do Premiere direito?")
         else:
-            with st.spinner("Decupando com Gemini 3.1 Flash Lite..."):
+            with st.spinner("Decupando... processando a mágica."):
                 model = genai.GenerativeModel(modelo_api_str, generation_config={"response_mime_type": "application/json"})
                 
                 numbered_transcript = ""
