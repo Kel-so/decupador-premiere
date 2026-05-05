@@ -204,10 +204,8 @@ if st.button("Analisar Transcrição", type="primary"):
             Você é um editor de vídeo especialista em cortes secos (fast pacing). Analise a seguinte transcrição com timestamps.
             1. Identifique 3 tópicos principais discutidos e extraia os tempos (início e fim) de cada um.
             2. Faça uma "Limpeza Geral" agressiva. Siga ESTAS REGRAS ESTRITAS para a lista de tempos da limpeza:
-               - RETAKES E REDUNDÂNCIAS: Se houver duas frases ou ideias seguidas muito semelhantes (ex: o locutor errou e repetiu, ou reformulou a frase para falar melhor), MANTENHA EXCLUSIVAMENTE A ÚLTIMA VERSÃO e exclua totalmente as tentativas anteriores.
-               - RESPIROS E SILÊNCIOS: Remova pausas e respiros longos. O corte tem que ser seco e dinâmico.
-               - ERROS: Remova qualquer gagueira, hesitação ou erro óbvio de fala.
-            
+               - O locutor errou e repetiu, ou reformulou a frase para falar melhor
+               - Remova pausas e respiros longos. O corte tem que ser seco e dinâmico.
             
             Seu retorno DEVE ser um JSON estrito neste exato formato:
             {
