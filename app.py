@@ -3,36 +3,96 @@ import google.generativeai as genai
 import json
 import math
 import re
+import os
+from datetime import datetime
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA
 # ==========================================
 st.set_page_config(page_title="Corte Rápido - Premiere", page_icon="🎬", layout="wide")
 
+# ==========================================
+# SISTEMA DE BANCO DE DADOS LOCAL (CONTADOR)
+# ==========================================
+ARQUIVO_USO = "uso_diario.json"
+
+def carregar_uso():
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    if os.path.exists(ARQUIVO_USO):
+        try:
+            with open(ARQUIVO_USO, "r") as f:
+                dados = json.load(f)
+                if dados.get("data") == hoje:
+                    return dados
+        except:
+            pass
+    return {"data": hoje, "gemini-3.1-flash-lite-preview": 0, "gemini-3.0-flash": 0, "gemini-2.5-flash": 0}
+
+def salvar_uso(dados):
+    with open(ARQUIVO_USO, "w") as f:
+        json.dump(dados, f)
+
+uso_atual = carregar_uso()
+
+# ==========================================
+# SIDEBAR: SEGURANÇA E PAINEL DE CONTROLE
+# ==========================================
+st.sidebar.title("⚙️ Painel de Controle")
+senha_digitada = st.sidebar.text_input("🔑 Senha de Acesso", type="password")
+
+try:
+    senha_correta = st.secrets["APP_PASSWORD"]
+except:
+    st.error("Erro interno: A senha do aplicativo não foi configurada nos Secrets.")
+    st.stop()
+
+if senha_digitada != senha_correta:
+    st.warning("Ferramenta bloqueada. Digite a senha na barra lateral para acessar o decupador.")
+    st.stop()
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("📊 Consumo Diário")
+st.sidebar.caption(f"Data: {uso_atual['data']}")
+st.sidebar.text(f"Lite (Prod): {uso_atual['gemini-3.1-flash-lite-preview']} / 500")
+st.sidebar.text(f"Gemini 3 (Alta): {uso_atual['gemini-3.0-flash']} / 20")
+st.sidebar.text(f"Gemini 2.5 (Alta): {uso_atual['gemini-2.5-flash']} / 20")
+
+# ==========================================
+# O RESTO DO CÓDIGO
+# ==========================================
 st.title("🎬 Decupador Automático pro Premiere")
 st.markdown("Joga a transcrição, escolhe os cortes e baixa a timeline pronta. Sem enrolação.")
 
-# ==========================================
-# FUNÇÕES DE APOIO (MATEMÁTICA E XML)
-# ==========================================
-def parse_time_to_frames(time_str, fps):
-    """
-    Converte HH:MM:SS:FF ou HH:MM:SS,MMM para frames totais.
-    """
-    time_str = time_str.strip()
-    # Verifica se é formato SRT (com vírgula)
-    if ',' in time_str:
-        parts = time_str.replace(',', ':').split(':')
-        if len(parts) == 4:
-            h, m, s, ms = map(int, parts)
-            frames = int((ms / 1000.0) * fps)
-            return int((h * 3600 + m * 60 + s) * fps + frames)
-    # Verifica se é formato de frames (com dois pontos)
-    elif time_str.count(':') == 3:
-        parts = time_str.split(':')
-        h, m, s, f = map(int, parts)
-        return int((h * 3600 + m * 60 + s) * fps + f)
+def extract_clips_from_transcript(text):
+    """ O Python extrai os tempos exatos e dá um ID pra cada fala. Zero alucinação. """
+    pattern = re.compile(r'(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})\s*(?:-|-->)\s*(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})')
+    clips = []
+    matches = list(pattern.finditer(text))
     
+    for i, match in enumerate(matches):
+        start_time = match.group(1)
+        end_time = match.group(2)
+        text_start_idx = match.end()
+        text_end_idx = matches[i+1].start() if i + 1 < len(matches) else len(text)
+        
+        spoken_text = text[text_start_idx:text_end_idx].strip()
+        spoken_text = re.sub(r'^Unknown\n?', '', spoken_text, flags=re.IGNORECASE).strip()
+        spoken_text = re.sub(r'^\d+\n?', '', spoken_text).strip()
+        
+        if spoken_text:
+            clips.append({"id": i + 1, "start": start_time, "end": end_time, "text": spoken_text})
+    return clips
+
+def parse_time_to_frames(time_str, fps):
+    time_str = str(time_str).strip()
+    match = re.search(r'(\d+):(\d+):(\d+)[:,\.](\d+)', time_str)
+    if match:
+        h, m, s, f_or_ms = map(int, [match.group(1), match.group(2), match.group(3), match.group(4)])
+        if ',' in time_str or '.' in time_str:
+            frames = int((f_or_ms / 1000.0) * fps)
+        else:
+            frames = f_or_ms
+        return int((h * 3600 + m * 60 + s) * fps + frames)
     return 0
 
 def get_timebase_ntsc(fps):
@@ -42,12 +102,8 @@ def get_timebase_ntsc(fps):
     return int(fps), "FALSE"
 
 def generate_fcp_xml(clips, fps, format_type, video_name):
-    """
-    Gera a estrutura FCP 7 XML com suporte a 2 canais de áudio (Stereo).
-    """
     timebase, ntsc = get_timebase_ntsc(fps)
     
-    # Define resolução
     if format_type == "Vertical (1080x1920)":
         width, height = 1080, 1920
     else:
@@ -82,13 +138,11 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('            </format>')
     xml_parts.append('            <track>')
 
-    # Track de Vídeo
     current_timeline_frame = 0
     for i, clip in enumerate(clips):
         start_frame = parse_time_to_frames(clip['start'], fps)
         end_frame = parse_time_to_frames(clip['end'], fps)
         duration = end_frame - start_frame
-        
         if duration <= 0: continue
 
         xml_parts.append('              <clipitem id="video-clip-' + str(i) + '">')
@@ -113,7 +167,6 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
             xml_parts.append('                  </rate>')
             xml_parts.append('                  <media>')
             xml_parts.append('                    <video></video>')
-            # Declarando 2 canais de áudio no arquivo de origem
             xml_parts.append('                    <audio>')
             xml_parts.append('                      <channelcount>2</channelcount>')
             xml_parts.append('                    </audio>')
@@ -128,7 +181,6 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('            </track>')
     xml_parts.append('          </video>')
     
-    # Tracks de Áudio (Stereo - 2 Tracks)
     xml_parts.append('          <audio>')
     xml_parts.append('            <format>')
     xml_parts.append('              <samplecharacteristics>')
@@ -137,7 +189,6 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('              </samplecharacteristics>')
     xml_parts.append('            </format>')
     
-    # Cria Track 1 e Track 2
     for track_idx in range(2):
         xml_parts.append('            <track>')
         current_timeline_frame = 0
@@ -159,7 +210,6 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
             xml_parts.append(f'                <in>{start_frame}</in>')
             xml_parts.append(f'                <out>{end_frame}</out>')
             xml_parts.append('                <file id="file-1"/>')
-            # Vincula cada track ao respectivo canal (1 ou 2) do arquivo
             xml_parts.append('                <sourcetrack>')
             xml_parts.append('                  <mediatype>audio</mediatype>')
             xml_parts.append(f'                  <trackindex>{track_idx + 1}</trackindex>')
@@ -174,20 +224,26 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('    </children>')
     xml_parts.append('  </project>')
     xml_parts.append('</xmeml>')
-    
     return "\n".join(xml_parts)
 
 # ==========================================
-# INTERFACE PRINCIPAL
+# INTERFACE PRINCIPAL E REQUISIÇÃO
 # ==========================================
-
-# Tenta carregar a API Key dos secrets do Streamlit
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
 except:
-    st.error("🚨 Ferramenta sem chave de ignição! Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
+    st.error("🚨 Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
     st.stop()
+
+modelos_disponiveis = {
+    "🚀 Gemini 3.1 Flash Lite (Produção - 500 req/dia)": "gemini-3.1-flash-lite-preview",
+    "🧠 Gemini 3 Flash (Complexos - 20 req/dia)": "gemini-3.0-flash",
+    "🎬 Gemini 2.5 Flash (Complexos - 20 req/dia)": "gemini-2.5-flash"
+}
+
+modelo_selecionado_nome = st.selectbox("🤖 Escolha o Cérebro da Operação", list(modelos_disponiveis.keys()))
+modelo_api_str = modelos_disponiveis[modelo_selecionado_nome]
 
 col1, col2, col3 = st.columns(3)
 
@@ -202,73 +258,89 @@ transcript_text = st.text_area("Cole a transcrição aqui (.txt com tempo ou .sr
 
 if st.button("Analisar Transcrição", type="primary"):
     if not transcript_text.strip():
-        st.warning("Pô, cola o texto aí antes de clicar.")
+        st.warning("Cole o texto da transcrição antes de clicar.")
     else:
-        with st.spinner("Decupando... O Gemini tá lendo e cortando os erros."):
-            # Configura a IA pra cuspir um JSON exato
-            model = genai.GenerativeModel('gemini-3.1-flash-lite-preview', generation_config={"response_mime_type": "application/json"})
-            
-            prompt = """
-            Você é um editor de vídeo especialista em cortes secos (fast pacing). Analise a seguinte transcrição com timestamps.
-            1. Identifique 3 tópicos principais discutidos e extraia os tempos (início e fim) de cada um.
-            2. Faça uma "Limpeza Geral". Siga ESTAS REGRAS para a lista de tempos da limpeza:
-               - O locutor errou e repetiu, ou reformulou a frase para falar melhor
-               - Remova pausas e respiros longos. O corte tem que ser seco e dinâmico.
-            
-            Seu retorno DEVE ser um JSON estrito neste exato formato:
-            {
-                "topico_1": {"title": "Título do Tópico", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]},
-                "topico_2": {"title": "Título do Tópico", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]},
-                "topico_3": {"title": "Título do Tópico", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]},
-                "limpeza_geral": {"title": "Apenas Cortes e Correções (Vídeo Completo Limpo)", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]}
-            }
-            IMPORTANTE: Copie EXATAMENTE o formato do timestamp da transcrição original para os campos "start" e "end".
-            
-            Transcrição:
-            """ + transcript_text
-            
-            try:
-                response = model.generate_content(prompt)
-                data = json.loads(response.text)
+        # Extrai os clipes via Python primeiro pra blindar os números
+        parsed_clips = extract_clips_from_transcript(transcript_text)
+        
+        if not parsed_clips:
+            st.error("Não consegui encontrar as marcações de tempo. Tem certeza que copiou do Premiere direito?")
+        else:
+            with st.spinner(f"Decupando com {modelo_selecionado_nome.split(' (')[0]}..."):
+                model = genai.GenerativeModel(modelo_api_str, generation_config={"response_mime_type": "application/json"})
                 
-                # Salva os dados na sessão pra não sumir se o usuário clicar nos botões depois
-                st.session_state['decupagem_data'] = data
-                st.success("Análise concluída com sucesso!")
-            except Exception as e:
-                st.error(f"Erro ao falar com a IA: {e}")
+                numbered_transcript = ""
+                for c in parsed_clips:
+                    numbered_transcript += f"ID: {c['id']} | Texto: {c['text']}\n"
+                
+                prompt = f"""
+                Você é um editor de vídeo SÊNIOR especialista em decupagem inteligente e fast pacing. 
+                
+                CRITÉRIOS DE SELEÇÃO E CORTE (REGRAS ESTRITAS):
+                1. RELEVÂNCIA SEMÂNTICA: O conteúdo selecionado deve fazer sentido dentro do tema central.
+                2. COMPLETUDE: Priorize frases inteiras. Nunca corte o locutor no meio de um pensamento.
+                3. CLAREZA: Selecione apenas os trechos onde a fala é inquestionavelmente clara.
+                4. DURAÇÃO E RITMO: Evite fragmentos muito curtos, a menos que sejam frases de impacto.
+                5. RETAKES: Se houver duas frases seguidas semelhantes (o locutor repetiu para soar melhor), MANTENHA EXCLUSIVAMENTE O ID DA ÚLTIMA VERSÃO.
+                6. RESPIROS: Remova IDs que contenham apenas pausas, gagueiras ou erros.
+                
+                Seu retorno DEVE ser EXATAMENTE um JSON, contendo APENAS os arrays de números inteiros (os IDs) que DEVEM FICAR na timeline final. Não invente IDs!
+                
+                Exemplo de formato exigido:
+                {{
+                    "topico_1": {{"title": "Título do Tópico 1", "ids": [1, 2, 5, 6]}},
+                    "topico_2": {{"title": "Título do Tópico 2", "ids": [10, 11, 12]}},
+                    "topico_3": {{"title": "Título do Tópico 3", "ids": [20, 21]}},
+                    "limpeza_geral": {{"title": "Limpeza Geral", "ids": [1, 2, 4, 5, 8, 9, 10, 12]}}
+                }}
+                
+                Transcrição Numerada:
+                {numbered_transcript}
+                """
+                
+                try:
+                    response = model.generate_content(prompt)
+                    data = json.loads(response.text)
+                    
+                    st.session_state['decupagem_data'] = data
+                    st.session_state['parsed_clips'] = parsed_clips
+                    
+                    uso_atual[modelo_api_str] += 1
+                    salvar_uso(uso_atual)
+                    
+                    st.success("Análise cirúrgica concluída com sucesso! Timeline livre de zebras e buracos.")
+                except Exception as e:
+                    st.error(f"Erro ao falar com a IA: {e}")
 
 # ==========================================
 # GERAÇÃO DO XML
 # ==========================================
-if 'decupagem_data' in st.session_state:
+if 'decupagem_data' in st.session_state and 'parsed_clips' in st.session_state:
     st.markdown("### Escolha o que você quer exportar:")
     data = st.session_state['decupagem_data']
+    parsed_clips = st.session_state['parsed_clips']
     
-    # Cria abas para organizar visualmente
     tabs = st.tabs(["🧹 Limpeza Geral", "🔥 Tópico 1", "🔥 Tópico 2", "🔥 Tópico 3"])
-    
-    opcoes = [
-        ("limpeza_geral", tabs[0]),
-        ("topico_1", tabs[1]),
-        ("topico_2", tabs[2]),
-        ("topico_3", tabs[3])
-    ]
+    opcoes = [("limpeza_geral", tabs[0]), ("topico_1", tabs[1]), ("topico_2", tabs[2]), ("topico_3", tabs[3])]
     
     for key, tab in opcoes:
         with tab:
             info = data.get(key)
-            if info:
+            if info and "ids" in info:
                 st.subheader(info['title'])
-                st.write(f"Total de cortes gerados: **{len(info['clips'])}**")
+                st.write(f"Total de cortes gerados: **{len(info['ids'])}**")
                 
-                # Gera o XML escondido na memória
-                xml_string = generate_fcp_xml(info['clips'], fps_choice, format_choice, video_filename)
+                # Reconstrói os clipes com a matemática intocada do Python
+                final_clips = [c for c in parsed_clips if c['id'] in info['ids']]
                 
-                # Botão de download
-                st.download_button(
-                    label=f"⬇️ Baixar XML: {info['title']}",
-                    data=xml_string,
-                    file_name=f"timeline_{key}.xml",
-                    mime="text/xml",
-                    type="primary"
-                )
+                if final_clips:
+                    xml_string = generate_fcp_xml(final_clips, fps_choice, format_choice, video_filename)
+                    st.download_button(
+                        label=f"⬇️ Baixar XML: {info['title']}",
+                        data=xml_string,
+                        file_name=f"timeline_{key}.xml",
+                        mime="text/xml",
+                        type="primary"
+                    )
+                else:
+                    st.warning("Nenhum clipe foi selecionado para esse tópico.")
