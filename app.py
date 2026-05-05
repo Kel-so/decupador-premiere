@@ -201,9 +201,13 @@ if st.button("Analisar Transcrição", type="primary"):
             model = genai.GenerativeModel('gemini-3.1-flash-lite-preview', generation_config={"response_mime_type": "application/json"})
             
             prompt = """
-            Você é um assistente de edição de vídeo. Analise a seguinte transcrição com timestamps.
+            Você é um editor de vídeo especialista em cortes secos (fast pacing). Analise a seguinte transcrição com timestamps.
             1. Identifique 3 tópicos principais discutidos e extraia os tempos (início e fim) de cada um.
-            2. Faça uma "Limpeza Geral": crie uma lista de tempos contínua, mas REMOVA todos os retakes, gagueiras, frases que o locutor errou e repetiu. Mantenha apenas os takes bons.
+            2. Faça uma "Limpeza Geral" agressiva. Siga ESTAS REGRAS ESTRITAS para a lista de tempos da limpeza:
+               - RETAKES E REDUNDÂNCIAS: Se houver duas frases ou ideias seguidas muito semelhantes (ex: o locutor errou e repetiu, ou reformulou a frase para falar melhor), MANTENHA EXCLUSIVAMENTE A ÚLTIMA VERSÃO e exclua totalmente as tentativas anteriores.
+               - RESPIROS E SILÊNCIOS: Remova pausas e respiros longos. O corte tem que ser seco e dinâmico.
+               - ERROS: Remova qualquer gagueira, hesitação ou erro óbvio de fala.
+            
             
             Seu retorno DEVE ser um JSON estrito neste exato formato:
             {
@@ -212,7 +216,7 @@ if st.button("Analisar Transcrição", type="primary"):
                 "topico_3": {"title": "Título do Tópico", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]},
                 "limpeza_geral": {"title": "Apenas Cortes e Correções (Vídeo Completo Limpo)", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]}
             }
-            IMPORTANTE: Copie EXATAMENTE o formato do timestamp da transcrição original (ex: 00:01:23:15 ou 00:01:23,500) para os campos "start" e "end".
+            IMPORTANTE: Copie EXATAMENTE o formato do timestamp da transcrição original para os campos "start" e "end".
             
             Transcrição:
             """ + transcript_text
