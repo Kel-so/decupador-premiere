@@ -202,7 +202,7 @@ if st.button("Analisar Transcrição", type="primary"):
     else:
         with st.spinner("Decupando... Analisando os tempos com a IA."):
             # Modelo atualizado conforme solicitado
-            model = genai.GenerativeModel('gemini-3.1-flash-lite-preview', generation_config={"response_mime_type": "application/json"})
+            model = genai.GenerativeModel('gemini-3.1-flash-preview', generation_config={"response_mime_type": "application/json"})
             
             prompt = """
             Você é um assistente de edição de vídeo. Analise a seguinte transcrição com timestamps.
