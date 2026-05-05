@@ -221,7 +221,7 @@ except:
 
 modelos_disponiveis = {
     "🚀 Gemini 3.1 Flash Lite (Produção - 500 req/dia)": "gemini-3.1-flash-lite-preview",
-    "🧠 Gemini 3 Flash (Complexos - 20 req/dia)": "gemini-3.0-flash",
+    "🧠 Gemini 3 Flash (Complexos - 20 req/dia)": "gemini-3-flash-preview",
     "🎬 Gemini 2.5 Flash (Complexos - 20 req/dia)": "gemini-2.5-flash"
 }
 
