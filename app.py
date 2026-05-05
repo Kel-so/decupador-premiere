@@ -188,7 +188,7 @@ except:
     st.error("🚨 Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
     st.stop()
 
-modelo_api_str = "gemini-3.1-flash-lite-preview"
+modelo_api_str = "gemini-3-flash-preview"
 
 col1, col2, col3 = st.columns(3)
 
