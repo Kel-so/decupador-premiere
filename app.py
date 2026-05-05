@@ -3,52 +3,20 @@ import google.generativeai as genai
 import json
 import math
 import re
-import os
-from datetime import datetime
 
 # ==========================================
 # CONFIGURAÇÃO DA PÁGINA
 # ==========================================
 st.set_page_config(page_title="Corte Rápido - Premiere", page_icon="🎬", layout="wide")
 
-# ==========================================
-# SISTEMA DE BANCO DE DADOS LOCAL (CONTADOR)
-# ==========================================
-ARQUIVO_USO = "uso_diario.json"
-
-def carregar_uso():
-    hoje = datetime.now().strftime("%Y-%m-%d")
-    if os.path.exists(ARQUIVO_USO):
-        try:
-            with open(ARQUIVO_USO, "r") as f:
-                dados = json.load(f)
-                if dados.get("data") == hoje:
-                    return dados
-        except:
-            pass
-    return {"data": hoje, "gemini-3.1-flash-lite-preview": 0}
-
-def salvar_uso(dados):
-    with open(ARQUIVO_USO, "w") as f:
-        json.dump(dados, f)
-
-uso_atual = carregar_uso()
-
-# ==========================================
-# SIDEBAR: PAINEL DE CONTROLE
-# ==========================================
-st.sidebar.title("⚙️ Painel de Controle")
-st.sidebar.subheader("📊 Consumo Diário")
-st.sidebar.caption(f"Data: {uso_atual['data']}")
-st.sidebar.text(f"Lite (Prod): {uso_atual['gemini-3.1-flash-lite-preview']} / 500")
-
-# ==========================================
-# O RESTO DO CÓDIGO
-# ==========================================
 st.title("🎬 Decupador Automático pro Premiere")
 st.markdown("Joga a transcrição, faz a limpeza geral e baixa a timeline pronta.")
 
+# ==========================================
+# FUNÇÕES DE APOIO (MATEMÁTICA E XML)
+# ==========================================
 def extract_clips_from_transcript(text):
+    """ O Python extrai os tempos exatos e dá um ID pra cada fala. Zero alucinação. """
     pattern = re.compile(r'(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})\s*(?:-|-->)\s*(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})')
     clips = []
     matches = list(pattern.finditer(text))
@@ -287,15 +255,12 @@ if st.button("Analisar Transcrição", type="primary"):
                     st.session_state['decupagem_data'] = data
                     st.session_state['parsed_clips'] = parsed_clips
                     
-                    uso_atual[modelo_api_str] += 1
-                    salvar_uso(uso_atual)
-                    
                     st.success("Análise cirúrgica concluída com sucesso!")
                 except Exception as e:
                     st.error(f"Erro ao falar com a IA: {e}")
 
 # ==========================================
-# GERAÇÃO DO XML
+# GERAÇÃO DO XML E DOWNLOADS
 # ==========================================
 if 'decupagem_data' in st.session_state and 'parsed_clips' in st.session_state:
     st.markdown("---")
@@ -324,7 +289,7 @@ if 'decupagem_data' in st.session_state and 'parsed_clips' in st.session_state:
     if "topicos" in data and len(data["topicos"]) > 0:
         st.markdown("<br><br>", unsafe_allow_html=True)
         st.subheader("🎯 Isolar Assunto Específico (Opcional)")
-        st.write("Opcional: A IA detectou os seguintes assuntos no material. Escolha um se quiser exportar apenas esse bloco.")
+        st.write("A IA detectou os seguintes assuntos no material. Escolha um se quiser exportar apenas esse bloco.")
         
         titulos_topicos = [t["title"] for t in data["topicos"]]
         topico_selecionado = st.selectbox("Selecione o tópico que deseja isolar:", ["Nenhum"] + titulos_topicos)
