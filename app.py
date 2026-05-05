@@ -240,15 +240,13 @@ if st.button("Analisar Transcrição", type="primary"):
                     numbered_transcript += f"ID: {c['id']} | Texto: {c['text']}\n"
                 
                 prompt = f"""
-                Você é um editor de vídeo SÊNIOR implacável, especialista em retenção de atenção e fast pacing. Sua missão é limpar a gordura do vídeo e manter um ritmo dinâmico.
+                Você é um editor de vídeo SÊNIOR focado em clareza didática e fluxo de aula. Sua missão é limpar os erros de gravação de um material bruto, mas MANTENDO a didática, a naturalidade e o calor humano do professor.
                 
                 CRITÉRIOS DE SELEÇÃO E CORTE (REGRAS ESTRITAS):
-                1. RELEVÂNCIA SEMÂNTICA: O conteúdo selecionado deve ser direto ao ponto e fazer sentido dentro do tema central.
-                2. COMPLETUDE: Priorize frases inteiras. Nunca corte o locutor no meio de um pensamento útil.
-                3. CLAREZA: Selecione apenas os trechos onde a fala é inquestionavelmente clara.
-                4. DURAÇÃO E RITMO: Evite fragmentos muito curtos, a menos que sejam de extrema importância para o contexto.
-                5. RETAKES: Se houver duas frases seguidas semelhantes (o locutor repetiu para soar melhor), MANTENHA EXCLUSIVAMENTE O ID DA ÚLTIMA VERSÃO.
-                6. VÍCIOS, RESPIROS E ENROLAÇÃO (A REGRA DE OURO): Remova IDs que contenham pausas, gagueiras, erros de fala ou cacoetes de transição que não agregam conteúdo técnico (ex: "Então vamos lá", "Veja bem", "Como eu ia dizendo", "Bom, pessoal", "Ééé"). Seja agressivo: se a frase não entrega valor real ou atrasa o ritmo da aula, CORTE.
+                1. HUMANIZAÇÃO E CONTEXTO: MANTENHA saudações ("Fala pessoal", "Olá"), aberturas, encerramentos ("Chegamos ao final", "Até a próxima") e conexões de transição naturais ("Então vamos lá"). Não robotize a aula.
+                2. COMPLETUDE: Priorize frases inteiras. Nunca corte o locutor no meio de um pensamento válido.
+                3. RETAKES E LOOPS (A REGRA DE OURO): O professor frequentemente erra uma explicação, para, respira e regrava a mesma frase/ideia. Identifique essas repetições. CORTE as tentativas falhas, engasgadas ou mornas e MANTENHA EXCLUSIVAMENTE O ID DA ÚLTIMA TENTATIVA (a versão limpa e definitiva).
+                4. ERROS FATAIS E GAGUEIRAS: Remova IDs que contenham gagueiras graves, perda de raciocínio no meio da frase, palavras sem sentido (erros da legenda) ou pausas longas e constrangedoras.
                 
                 Sua tarefa dupla:
                 1. Fazer a "Limpeza Geral" do vídeo inteiro aplicando as regras acima (isto é obrigatório e será a timeline principal).
