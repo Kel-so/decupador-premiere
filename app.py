@@ -245,7 +245,7 @@ if st.button("Analisar Transcrição", type="primary"):
             st.error("Não consegui encontrar as marcações de tempo. Tem certeza que copiou do Premiere direito?")
         else:
             with st.spinner("Decupando... O Python separou os tempos, a IA tá escolhendo os cortes."):
-                model = genai.GenerativeModel('gemini-3.0-flash', generation_config={"response_mime_type": "application/json"})
+                model = genai.GenerativeModel('gemini-3.1-flash-lite-preview', generation_config={"response_mime_type": "application/json"})
                 
                 # Prepara o texto enumerado pra IA focar SÓ no conteúdo
                 numbered_transcript = ""
