@@ -201,17 +201,11 @@ if st.button("Analisar Transcrição", type="primary"):
             model = genai.GenerativeModel('gemini-3.1-flash-lite-preview', generation_config={"response_mime_type": "application/json"})
             
             prompt = """
-            Você é um editor de vídeo SÊNIOR especialista em decupagem inteligente e fast pacing. Analise a seguinte transcrição com timestamps.
+            Você é um editor de vídeo especialista em cortes secos (fast pacing). Analise a seguinte transcrição com timestamps.
             1. Identifique 3 tópicos principais discutidos e extraia os tempos (início e fim) de cada um.
-            2. Faça uma "Limpeza Geral" agressiva, mantendo apenas o ouro.
-            
-            COMO AVALIAR O TEXTO E OS TEMPOS:
-            - RELEVÂNCIA SEMÂNTICA: O conteúdo selecionado deve fazer sentido dentro do tema central do vídeo, não apenas conter palavras-chave soltas.
-            - COMPLETUDE: Priorize frases inteiras ou grupos de frases adjacentes que formem um pensamento completo e fechem um raciocínio. Nunca corte o locutor no meio de um pensamento.
-            - CLAREZA: Selecione apenas os trechos onde a fala é inquestionavelmente clara e direta, sem ambiguidades.
-            - DURAÇÃO E RITMO: Evite fragmentos muito curtos (menores que 2 segundos), a menos que sejam frases de impacto (punchlines) extremamente diretas, enérgicas e independentes.
-            - RETAKES E REDUNDÂNCIAS: Se houver duas frases ou ideias seguidas muito semelhantes (ex: o locutor errou e repetiu, ou reformulou para soar melhor), MANTENHA EXCLUSIVAMENTE A ÚLTIMA VERSÃO.
-            - RESPIROS: Remova blocos de tempo inúteis e pausas longas para manter o dinamismo, respeitando as regras de Completude acima.
+            2. Faça uma "Limpeza Geral". Siga ESTAS REGRAS para a lista de tempos da limpeza:
+               - O locutor errou e repetiu, ou reformulou a frase para falar melhor
+               - Remova pausas e respiros longos. O corte tem que ser seco e dinâmico.
             
             Seu retorno DEVE ser um JSON estrito neste exato formato:
             {
@@ -220,7 +214,7 @@ if st.button("Analisar Transcrição", type="primary"):
                 "topico_3": {"title": "Título do Tópico", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]},
                 "limpeza_geral": {"title": "Apenas Cortes e Correções (Vídeo Completo Limpo)", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]}
             }
-            IMPORTANTE: Copie EXATAMENTE o formato do timestamp da transcrição original (ex: 00:01:23:15 ou 00:01:23,500) para os campos "start" e "end".
+            IMPORTANTE: Copie EXATAMENTE o formato do timestamp da transcrição original para os campos "start" e "end".
             
             Transcrição:
             """ + transcript_text
