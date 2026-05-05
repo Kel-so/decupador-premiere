@@ -80,49 +80,32 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('                <pixelaspectratio>square</pixelaspectratio>')
     xml_parts.append('              </samplecharacteristics>')
     xml_parts.append('            </format>')
-    xml_parts.append('            <track>')
+    
+    for track_idx in range(2):
+        xml_parts.append('            <track>')
+        current_timeline_frame = 0
+        for i, clip in enumerate(clips):
+            start_frame = parse_time_to_frames(clip['start'], fps)
+            end_frame = parse_time_to_frames(clip['end'], fps)
+            duration = end_frame - start_frame
+            if duration <= 0: continue
 
-    # Inserir os cortes de vídeo
-    current_timeline_frame = 0
-    for i, clip in enumerate(clips):
-        start_frame = parse_time_to_frames(clip['start'], fps)
-        end_frame = parse_time_to_frames(clip['end'], fps)
-        duration = end_frame - start_frame
-        
-        # Ignora cortes negativos ou inválidos
-        if duration <= 0: continue
-
-        xml_parts.append('              <clipitem id="video-clip-' + str(i) + '">')
-        xml_parts.append(f'                <name>{video_name}</name>')
-        xml_parts.append(f'                <duration>{duration}</duration>')
-        xml_parts.append('                <rate>')
-        xml_parts.append(f'                  <timebase>{timebase}</timebase>')
-        xml_parts.append(f'                  <ntsc>{ntsc}</ntsc>')
-        xml_parts.append('                </rate>')
-        xml_parts.append(f'                <start>{current_timeline_frame}</start>')
-        xml_parts.append(f'                <end>{current_timeline_frame + duration}</end>')
-        xml_parts.append(f'                <in>{start_frame}</in>')
-        xml_parts.append(f'                <out>{end_frame}</out>')
-        
-        # O Premiere exige que o arquivo (file) seja definido no primeiro clipe
-        if i == 0:
-            xml_parts.append('                <file id="file-1">')
-            xml_parts.append(f'                  <name>{video_name}</name>')
-            xml_parts.append(f'                  <pathurl>file://localhost/{video_name}</pathurl>')
-            xml_parts.append('                  <rate>')
-            xml_parts.append(f'                    <timebase>{timebase}</timebase>')
-            xml_parts.append(f'                    <ntsc>{ntsc}</ntsc>')
-            xml_parts.append('                  </rate>')
-            xml_parts.append('                  <media>')
-            xml_parts.append('                    <video></video>')
-            xml_parts.append('                    <audio></audio>')
-            xml_parts.append('                  </media>')
-            xml_parts.append('                </file>')
-        else:
+xml_parts.append(f'              <clipitem id="audio-clip-{track_idx}-{i}">')
+            xml_parts.append(f'                <name>{video_name}</name>')
+            xml_parts.append(f'                <duration>{duration}</duration>')
+            xml_parts.append('                <rate>')
+            xml_parts.append(f'                  <timebase>{timebase}</timebase>')
+            xml_parts.append(f'                  <ntsc>{ntsc}</ntsc>')
+            xml_parts.append('                </rate>')
+            xml_parts.append(f'                <start>{current_timeline_frame}</start>')
+            xml_parts.append(f'                <end>{current_timeline_frame + duration}</end>')
+            xml_parts.append(f'                <in>{start_frame}</in>')
+            xml_parts.append(f'                <out>{end_frame}</out>')
             xml_parts.append('                <file id="file-1"/>')
-            
-        xml_parts.append('              </clipitem>')
-        current_timeline_frame += duration
+            xml_parts.append('              </clipitem>')
+            current_timeline_frame += duration
+
+        xml_parts.append('            </track>')
 
     xml_parts.append('            </track>')
     xml_parts.append('          </video>')
