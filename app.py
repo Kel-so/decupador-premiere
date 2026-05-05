@@ -26,7 +26,7 @@ def carregar_uso():
                     return dados
         except:
             pass
-    return {"data": hoje, "gemini-3.1-flash-lite-preview": 0, "gemini-3.0-flash": 0, "gemini-2.5-flash": 0}
+    return {"data": hoje, "gemini-3.1-flash-lite-preview": 0}
 
 def salvar_uso(dados):
     with open(ARQUIVO_USO, "w") as f:
@@ -35,22 +35,9 @@ def salvar_uso(dados):
 uso_atual = carregar_uso()
 
 # ==========================================
-# SIDEBAR: SEGURANÇA E PAINEL DE CONTROLE
+# SIDEBAR: PAINEL DE CONTROLE
 # ==========================================
 st.sidebar.title("⚙️ Painel de Controle")
-senha_digitada = st.sidebar.text_input("🔑 Senha de Acesso", type="password")
-
-try:
-    senha_correta = st.secrets["APP_PASSWORD"]
-except:
-    st.error("Erro interno: A senha do aplicativo não foi configurada nos Secrets.")
-    st.stop()
-
-if senha_digitada != senha_correta:
-    st.warning("Ferramenta bloqueada. Digite a senha na barra lateral para acessar o decupador.")
-    st.stop()
-
-st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Consumo Diário")
 st.sidebar.caption(f"Data: {uso_atual['data']}")
 st.sidebar.text(f"Lite (Prod): {uso_atual['gemini-3.1-flash-lite-preview']} / 500")
@@ -59,10 +46,9 @@ st.sidebar.text(f"Lite (Prod): {uso_atual['gemini-3.1-flash-lite-preview']} / 50
 # O RESTO DO CÓDIGO
 # ==========================================
 st.title("🎬 Decupador Automático pro Premiere")
-st.markdown("Joga a transcrição, escolhe os cortes e baixa a timeline pronta. Sem enrolação.")
+st.markdown("Joga a transcrição, faz a limpeza geral e baixa a timeline pronta.")
 
 def extract_clips_from_transcript(text):
-    """ O Python extrai os tempos exatos e dá um ID pra cada fala. Zero alucinação. """
     pattern = re.compile(r'(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})\s*(?:-|-->)\s*(\d{2}:\d{2}:\d{2}[:.,]\d{2,3})')
     clips = []
     matches = list(pattern.finditer(text))
@@ -234,7 +220,6 @@ except:
     st.error("🚨 Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
     st.stop()
 
-# Definindo o modelo cravado na produção
 modelo_api_str = "gemini-3.1-flash-lite-preview"
 
 col1, col2, col3 = st.columns(3)
@@ -252,7 +237,6 @@ if st.button("Analisar Transcrição", type="primary"):
     if not transcript_text.strip():
         st.warning("Cole o texto da transcrição antes de clicar.")
     else:
-        # Extrai os clipes via Python primeiro pra blindar os números
         parsed_clips = extract_clips_from_transcript(transcript_text)
         
         if not parsed_clips:
@@ -276,14 +260,20 @@ if st.button("Analisar Transcrição", type="primary"):
                 5. RETAKES: Se houver duas frases seguidas semelhantes (o locutor repetiu para soar melhor), MANTENHA EXCLUSIVAMENTE O ID DA ÚLTIMA VERSÃO.
                 6. RESPIROS: Remova IDs que contenham apenas pausas, gagueiras ou erros.
                 
-                Seu retorno DEVE ser EXATAMENTE um JSON, contendo APENAS os arrays de números inteiros (os IDs) que DEVEM FICAR na timeline final. Não invente IDs!
+                Sua tarefa dupla:
+                1. Fazer a "Limpeza Geral" do vídeo inteiro aplicando as regras acima (isto é obrigatório e será a timeline principal).
+                2. Listar os tópicos/assuntos discutidos durante o vídeo, agrupando os IDs que pertencem a cada um deles, para o caso de eu querer baixar apenas um pedaço isolado depois.
+                
+                Seu retorno DEVE ser EXATAMENTE um JSON, contendo os arrays de números inteiros (os IDs). Não invente IDs!
                 
                 Exemplo de formato exigido:
                 {{
-                    "topico_1": {{"title": "Título do Tópico 1", "ids": [1, 2, 5, 6]}},
-                    "topico_2": {{"title": "Título do Tópico 2", "ids": [10, 11, 12]}},
-                    "topico_3": {{"title": "Título do Tópico 3", "ids": [20, 21]}},
-                    "limpeza_geral": {{"title": "Limpeza Geral", "ids": [1, 2, 4, 5, 8, 9, 10, 12]}}
+                    "limpeza_geral": {{"title": "Limpeza Geral Completa", "ids": [1, 2, 4, 5, 8, 9, 10, 12, 15]}},
+                    "topicos": [
+                        {{"title": "Introdução aos Conceitos", "ids": [1, 2, 4, 5]}},
+                        {{"title": "Aplicações Práticas", "ids": [8, 9, 10]}},
+                        {{"title": "Encerramento e Revisão", "ids": [12, 15]}}
+                    ]
                 }}
                 
                 Transcrição Numerada:
@@ -300,7 +290,7 @@ if st.button("Analisar Transcrição", type="primary"):
                     uso_atual[modelo_api_str] += 1
                     salvar_uso(uso_atual)
                     
-                    st.success("Análise cirúrgica concluída com sucesso! Timeline livre de zebras e buracos.")
+                    st.success("Análise cirúrgica concluída com sucesso!")
                 except Exception as e:
                     st.error(f"Erro ao falar com a IA: {e}")
 
@@ -308,31 +298,51 @@ if st.button("Analisar Transcrição", type="primary"):
 # GERAÇÃO DO XML
 # ==========================================
 if 'decupagem_data' in st.session_state and 'parsed_clips' in st.session_state:
-    st.markdown("### Escolha o que você quer exportar:")
+    st.markdown("---")
     data = st.session_state['decupagem_data']
     parsed_clips = st.session_state['parsed_clips']
     
-    tabs = st.tabs(["🧹 Limpeza Geral", "🔥 Tópico 1", "🔥 Tópico 2", "🔥 Tópico 3"])
-    opcoes = [("limpeza_geral", tabs[0]), ("topico_1", tabs[1]), ("topico_2", tabs[2]), ("topico_3", tabs[3])]
-    
-    for key, tab in opcoes:
-        with tab:
-            info = data.get(key)
-            if info and "ids" in info:
-                st.subheader(info['title'])
-                st.write(f"Total de cortes gerados: **{len(info['ids'])}**")
+    # 1. ÁREA PRINCIPAL: LIMPEZA GERAL
+    if "limpeza_geral" in data:
+        st.subheader("🧹 Limpeza Geral (Vídeo Completo)")
+        info_limpeza = data["limpeza_geral"]
+        st.write(f"Total de cortes mantidos no vídeo: **{len(info_limpeza['ids'])}**")
+        
+        final_clips_limpeza = [c for c in parsed_clips if c['id'] in info_limpeza['ids']]
+        
+        if final_clips_limpeza:
+            xml_limpeza = generate_fcp_xml(final_clips_limpeza, fps_choice, format_choice, video_filename)
+            st.download_button(
+                label="⬇️ Baixar XML: Limpeza Geral",
+                data=xml_limpeza,
+                file_name="timeline_limpeza_geral.xml",
+                mime="text/xml",
+                type="primary"
+            )
+            
+    # 2. ÁREA SECUNDÁRIA: TÓPICOS ESPECÍFICOS (Opcional)
+    if "topicos" in data and len(data["topicos"]) > 0:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.subheader("🎯 Isolar Assunto Específico (Opcional)")
+        st.write("Opcional: A IA detectou os seguintes assuntos no material. Escolha um se quiser exportar apenas esse bloco.")
+        
+        titulos_topicos = [t["title"] for t in data["topicos"]]
+        topico_selecionado = st.selectbox("Selecione o tópico que deseja isolar:", ["Nenhum"] + titulos_topicos)
+        
+        if topico_selecionado != "Nenhum":
+            info_topico = next(t for t in data["topicos"] if t["title"] == topico_selecionado)
+            st.write(f"Cortes encontrados neste assunto: **{len(info_topico['ids'])}**")
+            
+            final_clips_topico = [c for c in parsed_clips if c['id'] in info_topico['ids']]
+            if final_clips_topico:
+                xml_topico = generate_fcp_xml(final_clips_topico, fps_choice, format_choice, video_filename)
                 
-                # Reconstrói os clipes com a matemática intocada do Python
-                final_clips = [c for c in parsed_clips if c['id'] in info['ids']]
+                nome_arquivo = info_topico['title'].lower().replace(" ", "_").replace("/", "_")
                 
-                if final_clips:
-                    xml_string = generate_fcp_xml(final_clips, fps_choice, format_choice, video_filename)
-                    st.download_button(
-                        label=f"⬇️ Baixar XML: {info['title']}",
-                        data=xml_string,
-                        file_name=f"timeline_{key}.xml",
-                        mime="text/xml",
-                        type="primary"
-                    )
-                else:
-                    st.warning("Nenhum clipe foi selecionado para esse tópico.")
+                st.download_button(
+                    label=f"⬇️ Baixar XML: {info_topico['title']}",
+                    data=xml_topico,
+                    file_name=f"timeline_{nome_arquivo}.xml",
+                    mime="text/xml",
+                    type="secondary"
+                )
