@@ -54,8 +54,6 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("📊 Consumo Diário")
 st.sidebar.caption(f"Data: {uso_atual['data']}")
 st.sidebar.text(f"Lite (Prod): {uso_atual['gemini-3.1-flash-lite-preview']} / 500")
-st.sidebar.text(f"Gemini 3 (Alta): {uso_atual['gemini-3.0-flash']} / 20")
-st.sidebar.text(f"Gemini 2.5 (Alta): {uso_atual['gemini-2.5-flash']} / 20")
 
 # ==========================================
 # O RESTO DO CÓDIGO
@@ -236,14 +234,8 @@ except:
     st.error("🚨 Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
     st.stop()
 
-modelos_disponiveis = {
-    "🚀 Gemini 3.1 Flash Lite (Produção - 500 req/dia)": "gemini-3.1-flash-lite-preview",
-    "🧠 Gemini 3 Flash (Complexos - 20 req/dia)": "gemini-3.0-flash",
-    "🎬 Gemini 2.5 Flash (Complexos - 20 req/dia)": "gemini-2.5-flash"
-}
-
-modelo_selecionado_nome = st.selectbox("🤖 Escolha o Cérebro da Operação", list(modelos_disponiveis.keys()))
-modelo_api_str = modelos_disponiveis[modelo_selecionado_nome]
+# Definindo o modelo cravado na produção
+modelo_api_str = "gemini-3.1-flash-lite-preview"
 
 col1, col2, col3 = st.columns(3)
 
@@ -266,7 +258,7 @@ if st.button("Analisar Transcrição", type="primary"):
         if not parsed_clips:
             st.error("Não consegui encontrar as marcações de tempo. Tem certeza que copiou do Premiere direito?")
         else:
-            with st.spinner(f"Decupando com {modelo_selecionado_nome.split(' (')[0]}..."):
+            with st.spinner("Decupando com Gemini 3.1 Flash Lite..."):
                 model = genai.GenerativeModel(modelo_api_str, generation_config={"response_mime_type": "application/json"})
                 
                 numbered_transcript = ""
