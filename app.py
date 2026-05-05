@@ -9,30 +9,40 @@ import re
 # ==========================================
 st.set_page_config(page_title="Corte Rápido - Premiere", page_icon="🎬", layout="wide")
 
+# ==========================================
+# SISTEMA DE SEGURANÇA (SENHA)
+# ==========================================
+senha_digitada = st.sidebar.text_input("🔑 Senha de Acesso", type="password")
+
+try:
+    senha_correta = st.secrets["APP_PASSWORD"]
+except:
+    # Se você esquecer de configurar no site, ele trava o acesso
+    st.error("Erro interno: A senha do aplicativo não foi configurada nos Secrets do Streamlit.")
+    st.stop()
+
+if senha_digitada != senha_correta:
+    st.warning("Ferramenta bloqueada. Digite a senha na barra lateral para acessar o decupador.")
+    st.stop()
+
+# ==========================================
+# O RESTO DO CÓDIGO SÓ RODA SE A SENHA BATER
+# ==========================================
 st.title("🎬 Decupador Automático pro Premiere")
 st.markdown("Joga a transcrição, escolhe os cortes e baixa a timeline pronta. Sem enrolação.")
 
-# ==========================================
-# FUNÇÕES DE APOIO (MATEMÁTICA E XML)
-# ==========================================
 def parse_time_to_frames(time_str, fps):
-    """
-    Converte HH:MM:SS:FF ou HH:MM:SS,MMM para frames totais.
-    """
     time_str = time_str.strip()
-    # Verifica se é formato SRT (com vírgula)
     if ',' in time_str:
         parts = time_str.replace(',', ':').split(':')
         if len(parts) == 4:
             h, m, s, ms = map(int, parts)
             frames = int((ms / 1000.0) * fps)
             return int((h * 3600 + m * 60 + s) * fps + frames)
-    # Verifica se é formato de frames (com dois pontos)
     elif time_str.count(':') == 3:
         parts = time_str.split(':')
         h, m, s, f = map(int, parts)
         return int((h * 3600 + m * 60 + s) * fps + f)
-    
     return 0
 
 def get_timebase_ntsc(fps):
@@ -42,12 +52,8 @@ def get_timebase_ntsc(fps):
     return int(fps), "FALSE"
 
 def generate_fcp_xml(clips, fps, format_type, video_name):
-    """
-    Gera a estrutura brutal do FCP 7 XML que o Premiere ama ler.
-    """
     timebase, ntsc = get_timebase_ntsc(fps)
     
-    # Define resolução
     if format_type == "Vertical (1080x1920)":
         width, height = 1080, 1920
     else:
@@ -82,14 +88,12 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('            </format>')
     xml_parts.append('            <track>')
 
-    # Inserir os cortes de vídeo
     current_timeline_frame = 0
     for i, clip in enumerate(clips):
         start_frame = parse_time_to_frames(clip['start'], fps)
         end_frame = parse_time_to_frames(clip['end'], fps)
         duration = end_frame - start_frame
         
-        # Ignora cortes negativos ou inválidos
         if duration <= 0: continue
 
         xml_parts.append('              <clipitem id="video-clip-' + str(i) + '">')
@@ -104,7 +108,6 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
         xml_parts.append(f'                <in>{start_frame}</in>')
         xml_parts.append(f'                <out>{end_frame}</out>')
         
-        # O Premiere exige que o arquivo (file) seja definido no primeiro clipe
         if i == 0:
             xml_parts.append('                <file id="file-1">')
             xml_parts.append(f'                  <name>{video_name}</name>')
@@ -115,7 +118,9 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
             xml_parts.append('                  </rate>')
             xml_parts.append('                  <media>')
             xml_parts.append('                    <video></video>')
-            xml_parts.append('                    <audio></audio>')
+            xml_parts.append('                    <audio>')
+            xml_parts.append('                      <channelcount>2</channelcount>')
+            xml_parts.append('                    </audio>')
             xml_parts.append('                  </media>')
             xml_parts.append('                </file>')
         else:
@@ -127,7 +132,6 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('            </track>')
     xml_parts.append('          </video>')
     
-    # Adicionando uma track de áudio linkada
     xml_parts.append('          <audio>')
     xml_parts.append('            <format>')
     xml_parts.append('              <samplecharacteristics>')
@@ -135,31 +139,33 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     xml_parts.append('                <samplerate>48000</samplerate>')
     xml_parts.append('              </samplecharacteristics>')
     xml_parts.append('            </format>')
-    xml_parts.append('            <track>')
     
-    current_timeline_frame = 0
-    for i, clip in enumerate(clips):
-        start_frame = parse_time_to_frames(clip['start'], fps)
-        end_frame = parse_time_to_frames(clip['end'], fps)
-        duration = end_frame - start_frame
-        if duration <= 0: continue
+    for track_idx in range(2):
+        xml_parts.append('            <track>')
+        current_timeline_frame = 0
+        for i, clip in enumerate(clips):
+            start_frame = parse_time_to_frames(clip['start'], fps)
+            end_frame = parse_time_to_frames(clip['end'], fps)
+            duration = end_frame - start_frame
+            if duration <= 0: continue
 
-        xml_parts.append('              <clipitem id="audio-clip-' + str(i) + '">')
-        xml_parts.append(f'                <name>{video_name}</name>')
-        xml_parts.append(f'                <duration>{duration}</duration>')
-        xml_parts.append('                <rate>')
-        xml_parts.append(f'                  <timebase>{timebase}</timebase>')
-        xml_parts.append(f'                  <ntsc>{ntsc}</ntsc>')
-        xml_parts.append('                </rate>')
-        xml_parts.append(f'                <start>{current_timeline_frame}</start>')
-        xml_parts.append(f'                <end>{current_timeline_frame + duration}</end>')
-        xml_parts.append(f'                <in>{start_frame}</in>')
-        xml_parts.append(f'                <out>{end_frame}</out>')
-        xml_parts.append('                <file id="file-1"/>')
-        xml_parts.append('              </clipitem>')
-        current_timeline_frame += duration
+            xml_parts.append(f'              <clipitem id="audio-clip-{track_idx}-{i}">')
+            xml_parts.append(f'                <name>{video_name}</name>')
+            xml_parts.append(f'                <duration>{duration}</duration>')
+            xml_parts.append('                <rate>')
+            xml_parts.append(f'                  <timebase>{timebase}</timebase>')
+            xml_parts.append(f'                  <ntsc>{ntsc}</ntsc>')
+            xml_parts.append('                </rate>')
+            xml_parts.append(f'                <start>{current_timeline_frame}</start>')
+            xml_parts.append(f'                <end>{current_timeline_frame + duration}</end>')
+            xml_parts.append(f'                <in>{start_frame}</in>')
+            xml_parts.append(f'                <out>{end_frame}</out>')
+            xml_parts.append('                <file id="file-1"/>')
+            xml_parts.append('              </clipitem>')
+            current_timeline_frame += duration
 
-    xml_parts.append('            </track>')
+        xml_parts.append('            </track>')
+
     xml_parts.append('          </audio>')
     xml_parts.append('        </media>')
     xml_parts.append('      </sequence>')
@@ -170,15 +176,13 @@ def generate_fcp_xml(clips, fps, format_type, video_name):
     return "\n".join(xml_parts)
 
 # ==========================================
-# INTERFACE PRINCIPAL
+# INTERFACE PRINCIPAL E REQUISIÇÃO
 # ==========================================
-
-# Tenta carregar a API Key dos secrets do Streamlit
 try:
     API_KEY = st.secrets["GEMINI_API_KEY"]
     genai.configure(api_key=API_KEY)
 except:
-    st.error("🚨 Ferramenta sem chave de ignição! Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
+    st.error("🚨 Adicione a GEMINI_API_KEY nos Secrets do Streamlit.")
     st.stop()
 
 col1, col2, col3 = st.columns(3)
@@ -194,11 +198,11 @@ transcript_text = st.text_area("Cole a transcrição aqui (.txt com tempo ou .sr
 
 if st.button("Analisar Transcrição", type="primary"):
     if not transcript_text.strip():
-        st.warning("Pô, cola o texto aí antes de clicar.")
+        st.warning("Cole o texto da transcrição antes de clicar.")
     else:
-        with st.spinner("Decupando... O Gemini tá lendo e cortando os erros."):
-            # Configura a IA pra cuspir um JSON exato
-            model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"response_mime_type": "application/json"})
+        with st.spinner("Decupando... Analisando os tempos com a IA."):
+            # Modelo atualizado conforme solicitado
+            model = genai.GenerativeModel('gemini-3.1-flash-lite', generation_config={"response_mime_type": "application/json"})
             
             prompt = """
             Você é um assistente de edição de vídeo. Analise a seguinte transcrição com timestamps.
@@ -212,7 +216,7 @@ if st.button("Analisar Transcrição", type="primary"):
                 "topico_3": {"title": "Título do Tópico", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]},
                 "limpeza_geral": {"title": "Apenas Cortes e Correções (Vídeo Completo Limpo)", "clips": [{"start": "00:00:00:00", "end": "00:00:10:00"}]}
             }
-            IMPORTANTE: Copie EXATAMENTE o formato do timestamp da transcrição original (ex: 00:01:23:15 ou 00:01:23,500) para os campos "start" e "end".
+            IMPORTANTE: Copie EXATAMENTE o formato do timestamp da transcrição original para os campos "start" e "end".
             
             Transcrição:
             """ + transcript_text
@@ -220,21 +224,15 @@ if st.button("Analisar Transcrição", type="primary"):
             try:
                 response = model.generate_content(prompt)
                 data = json.loads(response.text)
-                
-                # Salva os dados na sessão pra não sumir se o usuário clicar nos botões depois
                 st.session_state['decupagem_data'] = data
                 st.success("Análise concluída com sucesso!")
             except Exception as e:
                 st.error(f"Erro ao falar com a IA: {e}")
 
-# ==========================================
-# GERAÇÃO DO XML
-# ==========================================
 if 'decupagem_data' in st.session_state:
     st.markdown("### Escolha o que você quer exportar:")
     data = st.session_state['decupagem_data']
     
-    # Cria abas para organizar visualmente
     tabs = st.tabs(["🧹 Limpeza Geral", "🔥 Tópico 1", "🔥 Tópico 2", "🔥 Tópico 3"])
     
     opcoes = [
@@ -251,10 +249,8 @@ if 'decupagem_data' in st.session_state:
                 st.subheader(info['title'])
                 st.write(f"Total de cortes gerados: **{len(info['clips'])}**")
                 
-                # Gera o XML escondido na memória
                 xml_string = generate_fcp_xml(info['clips'], fps_choice, format_choice, video_filename)
                 
-                # Botão de download
                 st.download_button(
                     label=f"⬇️ Baixar XML: {info['title']}",
                     data=xml_string,
