@@ -201,9 +201,11 @@ if st.button("Analisar Transcrição", type="primary"):
             model = genai.GenerativeModel('gemini-3.1-flash-lite-preview', generation_config={"response_mime_type": "application/json"})
             
             prompt = """
-            Você é um assistente de edição de vídeo. Analise a seguinte transcrição com timestamps.
-            1. Identifique 3 tópicos principais discutidos e extraia os tempos (início e fim) de cada um.
-            2. Faça uma "Limpeza Geral": crie uma lista de tempos contínua, mas REMOVA todos os retakes, gagueiras, frases que o locutor errou e repetiu. Mantenha apenas os takes bons.
+            Você é um editor de vídeo SÊNIOR com foco em fast pacing (corte seco). Sua missão é limpar a transcrição fornecida.
+            
+            COMO AVALIAR O TEXTO E OS TEMPOS:
+            1. RETAKES E REPETIÇÕES: Se o locutor começar uma frase, hesitar ou errar, e depois falar a mesma ideia reformulada logo em seguida, MANTENHA APENAS A ÚLTIMA TENTATIVA. Delete totalmente o bloco de tempo da tentativa errada/inferior. A regra é clara: o último take é sempre o bom.
+            2. Identifique 3 tópicos principais do vídeo, além da "Limpeza Geral".
             
             Seu retorno DEVE ser um JSON estrito neste exato formato:
             {
