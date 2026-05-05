@@ -198,7 +198,7 @@ if st.button("Analisar Transcrição", type="primary"):
     else:
         with st.spinner("Decupando... O Gemini tá lendo e cortando os erros."):
             # Configura a IA pra cuspir um JSON exato
-            model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+            model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"response_mime_type": "application/json"})
             
             prompt = """
             Você é um assistente de edição de vídeo. Analise a seguinte transcrição com timestamps.
